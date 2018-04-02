@@ -49,7 +49,7 @@ class findFaceGetPulse(object):
         self.trained = False
 
         self.idx = 1
-        self.find_faces = True
+        self.find_faces = False
 
     def find_faces_toggle(self):
         self.find_faces = not self.find_faces
@@ -114,79 +114,61 @@ class findFaceGetPulse(object):
             pylab.plot(freqs[idx], self.fft[k][idx])
         pylab.savefig("data_fft.png")
         quit()
-
+    
     def run(self, cam):
-        self.times.append(time.time() - self.t0)
+	print 'start'
+        
         self.frame_out = self.frame_in
         self.gray = cv2.equalizeHist(cv2.cvtColor(self.frame_in,
                                                   cv2.COLOR_BGR2GRAY))
         col = (100, 255, 100)
-        if self.find_faces:
-            cv2.putText(
-                self.frame_out, "Press 'C' to change camera (current: %s)" % str(
-                    cam),
-                (10, 25), cv2.FONT_HERSHEY_PLAIN, 1.25, col)
-            cv2.putText(
-                self.frame_out, "Press 'S' to lock face and begin",
-                       (10, 50), cv2.FONT_HERSHEY_PLAIN, 1.25, col)
-            cv2.putText(self.frame_out, "Press 'Esc' to quit",
-                       (10, 75), cv2.FONT_HERSHEY_PLAIN, 1.25, col)
-            self.data_buffer, self.times, self.trained = [], [], False
-            detected = list(self.face_cascade.detectMultiScale(self.gray,
-                                                               scaleFactor=1.3,
-                                                               minNeighbors=4,
-                                                               minSize=(
-                                                                   50, 50),
-                                                               flags=cv2.CASCADE_SCALE_IMAGE))
-
-            if len(detected) > 0:
-                detected.sort(key=lambda a: a[-1] * a[-2])
-
-                if self.shift(detected[-1]) > 10:
-                    self.face_rect = detected[-1]
-            forehead1 = self.get_subface_coord(0.5, 0.18, 0.25, 0.15)
-            self.draw_rect(self.face_rect, col=(255, 0, 0))
-            x, y, w, h = self.face_rect
-            cv2.putText(self.frame_out, "Face",
-                       (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
-            self.draw_rect(forehead1)
-            x, y, w, h = forehead1
-            cv2.putText(self.frame_out, "Forehead",
-                       (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
-            return
-        if set(self.face_rect) == set([1, 1, 2, 2]):
-            return
-        cv2.putText(
-            self.frame_out, "Press 'C' to change camera (current: %s)" % str(
-                cam),
-            (10, 25), cv2.FONT_HERSHEY_PLAIN, 1.25, col)
-        cv2.putText(
-            self.frame_out, "Press 'S' to restart",
-                   (10, 50), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
-        cv2.putText(self.frame_out, "Press 'D' to toggle data plot",
-                   (10, 75), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
-        cv2.putText(self.frame_out, "Press 'Esc' to quit",
-                   (10, 100), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
-
+	
+        detected = list(self.face_cascade.detectMultiScale(self.gray,
+                                                            scaleFactor=1.3,
+                                                            minNeighbors=4,
+							    minSize=(
+                                                               50, 50),
+                                                            flags=cv2.CASCADE_SCALE_IMAGE))
+        if len(detected) > 0:
+            detected.sort(key=lambda a: a[-1] * a[-2])
+	    #self.data_buffer, self.times, self.trained = [], [self.times[-1]], False
+            if self.shift(detected[-1]) > 10:
+                self.face_rect = detected[-1]
         forehead1 = self.get_subface_coord(0.5, 0.18, 0.25, 0.15)
+        self.draw_rect(self.face_rect, col=(255, 0, 0))
+        x, y, w, h = self.face_rect
+        cv2.putText(self.frame_out, "Face",
+                    (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
         self.draw_rect(forehead1)
-
+        x, y, w, h = forehead1
+        cv2.putText(self.frame_out, "Forehead",
+                    (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
+	print 'haha'
+        if set(self.face_rect) == set([1, 1, 2, 2]):
+	    print 'break'
+            return
         vals = self.get_subface_means(forehead1)
-
+	#print vals
         self.data_buffer.append(vals)
+	#print self.data_buffer
         L = len(self.data_buffer)
+	self.times.append(time.time() - self.t0)
         if L > self.buffer_size:
             self.data_buffer = self.data_buffer[-self.buffer_size:]
             self.times = self.times[-self.buffer_size:]
             L = self.buffer_size
 
         processed = np.array(self.data_buffer)
+	
         self.samples = processed
+	print L
+	#print self.times
         if L > 10:
             self.output_dim = processed.shape[0]
 
             self.fps = float(L) / (self.times[-1] - self.times[0])
             even_times = np.linspace(self.times[0], self.times[-1], L)
+	    print 'processed\n',len(processed), '\nself\n',len(self.times)
             interpolated = np.interp(even_times, self.times, processed)
             interpolated = np.hamming(L) * interpolated
             interpolated = interpolated - np.mean(interpolated)

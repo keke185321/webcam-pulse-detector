@@ -74,7 +74,7 @@ class getPulseApp(object):
         # Init parameters for the cardiac data plot
         self.bpm_plot = False
         self.plot_title = "Data display - raw signal (top) and PSD (bottom)"
-
+	
         # Maps keystrokes to specified methods
         #(A GUI window must have focus for these to work)
         self.key_controls = {"s": self.toggle_search,
